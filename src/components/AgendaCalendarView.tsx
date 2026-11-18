@@ -21,8 +21,10 @@ import {
   cleanWhatsAppLink,
   formatFriendlyDate,
   getMonthCalendarDays,
+  getTeacherSlotsForDay,
   getTodayYMD,
   getWeekdayFromYMD,
+  isTeacherAvailableOnDay,
   MONTH_NAMES,
   parseLocalDate,
 } from '../utils/dateUtils';
@@ -140,15 +142,15 @@ export const AgendaCalendarView: React.FC<AgendaCalendarViewProps> = ({
 
   const selectedWeekday = getWeekdayFromYMD(selectedDate);
 
-  // Professores que atendem no dia da semana selecionado
+  // Professores que atendem no dia da semana selecionado (respeitando agenda personalizada)
   const teachersAvailableOnDay = useMemo(
-    () => visibleTeachers.filter((t) => t.available_days.includes(selectedWeekday)),
+    () => visibleTeachers.filter((t) => isTeacherAvailableOnDay(t, selectedWeekday)),
     [visibleTeachers, selectedWeekday],
   );
 
-  // Outros professores (da matéria/filtro) que não atendem regularmente nesse dia da semana
+  // Outros professores (da matéria/filtro) que não atendem nesse dia específico
   const teachersOffDay = useMemo(
-    () => visibleTeachers.filter((t) => !t.available_days.includes(selectedWeekday)),
+    () => visibleTeachers.filter((t) => !isTeacherAvailableOnDay(t, selectedWeekday)),
     [visibleTeachers, selectedWeekday],
   );
 
@@ -192,8 +194,8 @@ export const AgendaCalendarView: React.FC<AgendaCalendarViewProps> = ({
           )}
         </div>
 
-        {/* Chips horizontais deslizáveis no mobile */}
-        <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+        {/* Chips de matérias com quebra fluida (100% visíveis, sem cortes) */}
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => handleSelectSubject('ALL')}
@@ -265,7 +267,7 @@ export const AgendaCalendarView: React.FC<AgendaCalendarViewProps> = ({
               </button>
             </div>
           ) : (
-            <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => setSelectedTeacherId('ALL')}
@@ -362,7 +364,7 @@ export const AgendaCalendarView: React.FC<AgendaCalendarViewProps> = ({
               );
               const weekday = getWeekdayFromYMD(cell.dateStr);
               const hasTeachersOnWeekday = visibleTeachers.some((t) =>
-                t.available_days.includes(weekday),
+                isTeacherAvailableOnDay(t, weekday),
               );
 
               return (
@@ -541,8 +543,9 @@ export const AgendaCalendarView: React.FC<AgendaCalendarViewProps> = ({
                     )
                     .map((b) => b.time_slot);
 
+                  const teacherDaySlots = getTeacherSlotsForDay(teacher, selectedWeekday);
                   const allSlots = Array.from(
-                    new Set([...teacher.available_slots, ...extraBookedSlots]),
+                    new Set([...teacherDaySlots, ...extraBookedSlots]),
                   ).sort();
 
                   return (

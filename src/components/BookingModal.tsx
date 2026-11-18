@@ -14,9 +14,11 @@ import { AppDataState, BookingModalPreset, BookingType, Student } from '../types
 import { CreateBookingInput, getSlotAvailability } from '../services/dataService';
 import {
   formatShortDate,
+  getTeacherSlotsForDay,
   getTodayYMD,
   getWeekdayFromYMD,
   GRADE_LEVELS,
+  isTeacherAvailableOnDay,
   TIME_SLOTS,
   WEEKDAYS,
 } from '../utils/dateUtils';
@@ -102,7 +104,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     }
     if (!matchingTeachers.some((t) => t.id === teacherId)) {
       const weekday = getWeekdayFromYMD(date);
-      const onDay = matchingTeachers.find((t) => t.available_days.includes(weekday));
+      const onDay = matchingTeachers.find((t) => isTeacherAvailableOnDay(t, weekday));
       setTeacherId((onDay || matchingTeachers[0]).id);
     }
   }, [isOpen, matchingTeachers, teacherId, date]);
@@ -115,11 +117,16 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   // Avalia disponibilidade de todos os horários do professor selecionado naquela data
   const teacherSlotsWithStatus = useMemo(() => {
     if (!selectedTeacher) return [];
+    const selectedWeekday = getWeekdayFromYMD(date);
+    const daySlots = selectedTeacher
+      ? getTeacherSlotsForDay(selectedTeacher, selectedWeekday)
+      : [];
+
     const baseSlots = showCustomTime
       ? TIME_SLOTS
       : Array.from(
           new Set([
-            ...selectedTeacher.available_slots,
+            ...daySlots,
             ...(timeSlot ? [timeSlot] : []),
           ]),
         ).sort();
@@ -349,7 +356,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {matchingTeachers.map((teacher) => {
                   const active = teacher.id === teacherId;
-                  const worksOnDay = teacher.available_days.includes(selectedWeekday);
+                  const worksOnDay = isTeacherAvailableOnDay(teacher, selectedWeekday);
                   return (
                     <button
                       key={teacher.id}

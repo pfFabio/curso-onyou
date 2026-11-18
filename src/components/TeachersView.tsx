@@ -12,6 +12,8 @@ import {
 import { AppDataState, SubjectItem, Teacher } from '../types';
 import {
   cleanWhatsAppLink,
+  getTeacherSlotsForDay,
+  isTeacherAvailableOnDay,
   TEACHER_COLORS,
   WEEKDAYS,
 } from '../utils/dateUtils';
@@ -177,7 +179,7 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
           <select
             value={filterSubject}
             onChange={(e) => setFilterSubject(e.target.value)}
-            className="h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-700 focus:border-indigo-500 focus:outline-none"
+            className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-700 focus:border-indigo-500 focus:outline-none sm:w-auto sm:min-w-[200px]"
           >
             <option value="ALL">Todas as Matérias</option>
             {data.subjects.map((sub) => (
@@ -288,29 +290,31 @@ export const TeachersView: React.FC<TeachersViewProps> = ({
                     ))}
                   </div>
 
-                  {/* Dias & Horários */}
-                  <div className="mt-3 space-y-1.5 rounded-xl bg-slate-50 p-2.5 text-xs">
-                    <div className="flex flex-wrap items-center gap-1">
-                      <span className="font-bold text-slate-600">Dias:</span>
-                      {teacher.available_days.map((d) => (
-                        <span
-                          key={d}
-                          className="rounded bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-200"
-                        >
-                          {WEEKDAYS[d]?.short}
-                        </span>
-                      ))}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-1">
-                      <span className="font-bold text-slate-600">Horários:</span>
-                      {teacher.available_slots.map((s) => (
-                        <span
-                          key={s}
-                          className="rounded bg-white px-1.5 py-0.5 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-200"
-                        >
-                          {s}
-                        </span>
-                      ))}
+                  {/* Grade Semanal Personalizada */}
+                  <div className="mt-3 rounded-xl bg-slate-50 p-2.5 text-xs">
+                    <span className="font-bold text-slate-700">Horários por Dia da Semana:</span>
+                    <div className="mt-1.5 space-y-1">
+                      {WEEKDAYS.filter((w) => isTeacherAvailableOnDay(teacher, w.value)).map((w) => {
+                        const slots = getTeacherSlotsForDay(teacher, w.value);
+                        return (
+                          <div key={w.value} className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                            <span className="w-9 font-bold text-slate-600">{w.short}:</span>
+                            <div className="flex flex-wrap gap-1">
+                              {slots.map((s) => (
+                                <span
+                                  key={s}
+                                  className="rounded bg-white px-1.5 py-0.5 text-[10px] font-bold text-indigo-700 ring-1 ring-slate-200"
+                                >
+                                  {s}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {WEEKDAYS.filter((w) => isTeacherAvailableOnDay(teacher, w.value)).length === 0 && (
+                        <p className="text-[11px] italic text-slate-400">Nenhum horário cadastrado</p>
+                      )}
                     </div>
                   </div>
 

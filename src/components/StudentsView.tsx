@@ -154,7 +154,7 @@ export const StudentsView: React.FC<StudentsViewProps> = ({
           <select
             value={filterSubject}
             onChange={(e) => setFilterSubject(e.target.value)}
-            className="h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-700 focus:border-indigo-500 focus:outline-none"
+            className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-700 focus:border-indigo-500 focus:outline-none sm:w-auto sm:min-w-[200px]"
           >
             <option value="ALL">Todas as Matérias</option>
             {data.subjects.map((sub) => (

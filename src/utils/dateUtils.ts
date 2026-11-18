@@ -171,3 +171,151 @@ export function cleanWhatsAppLink(phone: string, text?: string): string | null {
   const query = text ? `?text=${encodeURIComponent(text)}` : '';
   return `https://wa.me/${full}${query}`;
 }
+
+/**
+ * Constrói a chave composta de horário por dia da semana: ex. "1-15:00"
+ */
+export function formatDaySlotKey(weekday: number, timeSlot: string): string {
+  return `${weekday}-${timeSlot}`;
+}
+
+/**
+ * Decompõe uma string de horário em { weekday, timeSlot }.
+ * Suporta:
+ * - "1-15:00" (índice 0 a 6)
+ * - "seg-15:00" (abreviação textual do dia)
+ * - "15:00" (sem prefixo de dia, weekday: null)
+ */
+export function parseDaySlotKey(slotStr: string): { weekday: number | null; timeSlot: string } {
+  if (!slotStr) return { weekday: null, timeSlot: '' };
+  const parts = slotStr.split('-');
+  if (parts.length === 2) {
+    const dayPart = parts[0].toLowerCase().trim();
+    const timeSlot = parts[1].trim();
+
+    const num = parseInt(dayPart, 10);
+    if (!isNaN(num) && num >= 0 && num <= 6) {
+      return { weekday: num, timeSlot };
+    }
+
+    const match = WEEKDAYS.find(
+      (w) =>
+        w.short.toLowerCase() === dayPart ||
+        w.full.toLowerCase().startsWith(dayPart)
+    );
+    if (match) {
+      return { weekday: match.value, timeSlot };
+    }
+  }
+  return { weekday: null, timeSlot: slotStr.trim() };
+}
+
+/**
+ * Agrupa uma lista de slots em um dicionário { [weekday]: timeSlots[] }.
+ */
+export function groupSlotsByWeekday(
+  slots: string[],
+  fallbackDays: number[] = [1, 2, 3, 4, 5]
+): Record<number, string[]> {
+  const result: Record<number, string[]> = {
+    0: [],
+    1: [],
+    2: [],
+    3: [],
+    4: [],
+    5: [],
+    6: [],
+  };
+
+  const genericSlots: string[] = [];
+  let hasDaySpecific = false;
+
+  for (const s of slots || []) {
+    const parsed = parseDaySlotKey(s);
+    if (parsed.weekday !== null) {
+      hasDaySpecific = true;
+      if (!result[parsed.weekday].includes(parsed.timeSlot)) {
+        result[parsed.weekday].push(parsed.timeSlot);
+      }
+    } else if (parsed.timeSlot) {
+      genericSlots.push(parsed.timeSlot);
+    }
+  }
+
+  // Se não houver nenhum slot específico por dia, aplica os genéricos aos fallbackDays
+  if (!hasDaySpecific && genericSlots.length > 0) {
+    for (const d of fallbackDays) {
+      result[d] = [...genericSlots];
+    }
+  }
+
+  // Ordena horários de cada dia
+  for (let d = 0; d <= 6; d++) {
+    result[d].sort();
+  }
+
+  return result;
+}
+
+/**
+ * Converte um dicionário { [weekday]: timeSlots[] } em uma lista plana de strings "weekday-HH:mm"
+ */
+export function flattenDaySlots(grouped: Record<number, string[]>): string[] {
+  const result: string[] = [];
+  for (let d = 0; d <= 6; d++) {
+    const daySlots = grouped[d] || [];
+    for (const slot of daySlots) {
+      result.push(formatDaySlotKey(d, slot));
+    }
+  }
+  return result.sort();
+}
+
+/**
+ * Retorna exclusivamente os horários de um professor específicos para um determinado dia da semana.
+ */
+export function getTeacherSlotsForDay(
+  teacher: { available_days?: number[]; available_slots?: string[] },
+  weekday: number
+): string[] {
+  const slots = teacher.available_slots || [];
+  if (slots.length === 0) return [];
+
+  const daySpecificSlots: string[] = [];
+  const genericSlots: string[] = [];
+  let hasDaySpecific = false;
+
+  for (const s of slots) {
+    const parsed = parseDaySlotKey(s);
+    if (parsed.weekday !== null) {
+      hasDaySpecific = true;
+      if (parsed.weekday === weekday) {
+        daySpecificSlots.push(parsed.timeSlot);
+      }
+    } else if (parsed.timeSlot) {
+      genericSlots.push(parsed.timeSlot);
+    }
+  }
+
+  if (hasDaySpecific) {
+    return Array.from(new Set(daySpecificSlots)).sort();
+  }
+
+  // Caso legado (slots genéricos repetidos em available_days)
+  if (teacher.available_days && teacher.available_days.includes(weekday)) {
+    return Array.from(new Set(genericSlots)).sort();
+  }
+
+  return [];
+}
+
+/**
+ * Verifica se um professor tem horários disponíveis no dia da semana fornecido.
+ */
+export function isTeacherAvailableOnDay(
+  teacher: { available_days?: number[]; available_slots?: string[] },
+  weekday: number
+): boolean {
+  return getTeacherSlotsForDay(teacher, weekday).length > 0;
+}
+
